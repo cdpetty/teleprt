@@ -2,73 +2,78 @@
 #include <dirent.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+
+
+char *matches[10];
+int matchNum = 0;
 
 char* getComponent(char component[], char* path){
     int iterator;
     char* pathPointer = path;
     for(iterator = 0; *pathPointer != '/' && *pathPointer; iterator++, pathPointer++);
-//    printf("Iterator: %d\n", iterator);
-//    strncpy(component, path, iterator);
     memcpy(component, path, iterator);
     component[iterator] = '\0';
-//    printf("Component: %s\n", component);
-//    fflush(0);
     return (*pathPointer == '\0') ? pathPointer : ++pathPointer;
-//    if (*pathPointer == '\0'){
-//        printf("returning pathpointer: %s\n", pathPointer);
-//        return pathPointer;
-//    } else {
-//        printf("returning pathpointer: %s\n", ++pathPointer);
-////        return ++pathPointer;
-//        return pathPointer;
-//    }
 }
-
-//char* getComponent(char component[], char* path){
-//    int iterator;
-//    for(iterator = 0; *path != '/' && *path; component[iterator] = *path++, iterator++){}
-//    component[iterator] = '\0';
-//    if (*path == '\0'){
-//        return path;
-//    } else {
-//        return ++path;
-//    }
-//}
-
-//char* getComponent(char component[], char* path){
-////    printf("Called get component with compoentn %s and path %s", component, path);
-//    memccpy(component, path, '/', strlen(path));
-//    component[strlen(component)-1] = '\0';
-////    printf("\ncomponent: %s\n", component);
-//    return (*(path + strlen(component))) ? path + strlen(component) + 1 : path + strlen(component);
-//}
 
 
 int doesMatch(char component[], char* name){
-    char* tmp = component;
-    return strncmp(tmp, name, strlen(tmp));
+    return strncmp(component, name, strlen(component));
 }
 
-char* getDir(char component[], char* name){
+//char* getDir(char component[], char* name){
+void getDir(char component[], char* name){
 
     DIR *directory;
     struct dirent *de;
 
     if (!(directory = opendir(name))){
-        fputs("TP error: cannot open directory", stderr);
+        write(STDERR_FILENO, "TP error: cannot open directory\n", sizeof("TP error: cannot open directory\n"));
         exit(1);
     }
 
+//    int matchNum = 0;
     while ( (de = readdir(directory)) ){
         if (de->d_type == DT_DIR) {
-//            puts(de->d_name);
+            //TODO: Add support for multiple matching folders
             if (doesMatch(component, de->d_name) == 0) {
-                closedir(directory);
-                return de->d_name;
+                matches[matchNum] = de->d_name;
+                matchNum++;
             }
         }
     }
-    return NULL;
+    closedir(directory);
+//    fputs("TP error: cannot match directory path\n", stderr);
+//    for (int x = 0; x < 2; ++x){
+//        printf("Match: %s\n", matches[x]);
+//        fflush(0);
+//    }
+
+//    return NULL;
+//    return (matchNum > 0) ? matches : NULL;
+}
+
+char* pickDir(char* realPath){
+
+    while (1) {
+        int counter = 1;
+        char buffer[30];
+        for (int x = 0; x < matchNum; ++x) {
+            sprintf(buffer, "%d. %s", counter++, matches[x]);
+            puts(buffer);
+            fflush(0);
+        }
+        write(STDOUT_FILENO, "> ", 3);
+        read(STDIN_FILENO, buffer, 2);
+        int chosenInt = atoi(buffer);
+
+        if (chosenInt <= matchNum) {
+            matchNum = 0;
+            return matches[chosenInt - 1];
+        }
+    }
+
 }
 
 int main(int argc, char **argv, char **envp){
@@ -91,15 +96,24 @@ int main(int argc, char **argv, char **envp){
         while (*path) {
             path = getComponent(component, path);
             strcat(realPath, "/");
-            char* newDir = getDir(component, realPath);
-            if (newDir){
-                strcat(realPath, newDir);
+            getDir(component, realPath);
+
+
+            if (matchNum > 1){
+                char* chosen = pickDir(realPath);
+                strcat(realPath, chosen);
+            } else if (matchNum == 1){
+                strcat(realPath, matches[0]);
             } else {
-                puts(".");
-                return 0;
+                char errorMessage[50] = "TP error - cannot match path: \"";
+                strcat(errorMessage, component);
+                strcat(errorMessage, "\"");
+                write(STDERR_FILENO, errorMessage, sizeof(errorMessage));
+                return 1;
             }
         }
 
+        //TODO: Add history mechanism
         puts(realPath);
     }
     return 0;
