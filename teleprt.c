@@ -78,6 +78,7 @@ char* pickDir(char* realPath){
 
 int main(int argc, char **argv, char **envp){
 
+    printf("Debug");
     if (argc == 1){
         puts(getenv("HOME"));
     } else {
