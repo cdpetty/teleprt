@@ -78,7 +78,7 @@ char* pickDir(char* realPath){
 
 int main(int argc, char **argv, char **envp){
 
-    printf("Debug");
+    // printf("Debug");
     if (argc == 1){
         puts(getenv("HOME"));
     } else {
@@ -93,7 +93,6 @@ int main(int argc, char **argv, char **envp){
         } else {
             strcat(realPath, ".");
         }
-
         while (*path) {
             path = getComponent(component, path);
             strcat(realPath, "/");
